@@ -64,6 +64,7 @@ def go(speedlin, speedang):
     twist.angular.z = speedang
     cmd_vel_pub.publish(twist)
 
+#A function that splits the array into 7 directional parts
 def segment(max_range=5):
     temp = []
     for x in range(234, 342, 36):
@@ -81,6 +82,7 @@ def segment(max_range=5):
             temp[x] = float('inf')
     return temp
 
+#A function similar to segment but for angles instead of ranges
 def segment_Angles(max_range=5):
     temp = []
     stor1 = []
@@ -123,13 +125,15 @@ def check_corner(data):
     else:
         return 0
 
+#A function to tell if the bot has found a wall
 def found_Wall(data):
     retu = False
     for x in data:
         if not math.isinf(x) and x <= 1:
             retu = True
     return retu
-            
+
+#Simple function for error calculations            
 def getErr(margin, data):
     temp = []
     for x in data:
@@ -137,6 +141,7 @@ def getErr(margin, data):
             temp.append(x)
     return margin - min(temp)
 
+#Simple function to find the angle to align with wall
 def get_Alignment(data):
     lowest = 0
     for x in range(1,len(data)):
@@ -160,7 +165,7 @@ cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 rospy.sleep(1)
 print"---Beginning Run---"
 
-#set rate
+#set rate and initial calls
 rate = rospy.Rate(20)
 start_time = rospy.Time.now()
 max_vel = 0.3
@@ -172,6 +177,7 @@ constants = [0.1, 0.4, 0.4]
 
 curr_Time = rospy.Time.now().to_sec()
 
+#Random roaming loop
 while not rospy.is_shutdown():
     first_Ranges = segment()
     if found_Wall(first_Ranges):
@@ -180,9 +186,11 @@ while not rospy.is_shutdown():
     ang = min(max(random.uniform(-.1, .1), -.1), .1)
     go(lin, ang)
 
+#Reset before follow
 stop()
 rospy.sleep(1)
 
+#Follows the Wall
 while not rospy.is_shutdown():
     
     clean_Ranges = segment()
@@ -193,8 +201,8 @@ while not rospy.is_shutdown():
     ang = 0
 
     clean_Angles = segment_Angles()
-    #if min(clean_Ranges) <= follow_Distance:
-        #lin = 0
+
+    #Variable speeds for different situations
     if min(clean_Ranges) * 2 <= follow_Distance:
         lin = 0.15
     elif min(clean_Ranges) > 1.75:
@@ -203,6 +211,7 @@ while not rospy.is_shutdown():
         lin = 0.1
     curr_Time = rospy.Time.now().to_sec()
     last_time = curr_Time
+    #Calculating PID
     Pd = constants[0]* Range_err + constants[1]* ((Range_err - last_err)/ 0.5)
     determine = get_Alignment(clean_Ranges)
     angle_err = (determine[0] - np.pi/2 * determine[1]) * constants[2]
@@ -212,4 +221,3 @@ while not rospy.is_shutdown():
     
     go(lin, ang)
     rate.sleep()
-    print(Range_err - last_err)
